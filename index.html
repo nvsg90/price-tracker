@@ -94,80 +94,105 @@
 </div>
 
 <script>
-  const products = JSON.parse(localStorage.getItem("products") || "[]");
-  const list = document.getElementById("productList");
-  const thresholdSelect = document.getElementById("threshold");
+const products = JSON.parse(localStorage.getItem("products") || "[]");
+const list = document.getElementById("productList");
+const thresholdSelect = document.getElementById("threshold");
 
-  function save() {
-    localStorage.setItem("products", JSON.stringify(products));
+function save() {
+  localStorage.setItem("products", JSON.stringify(products));
+}
+
+// Render the product list
+function render() {
+  list.innerHTML = "";
+  products.forEach((p, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <div class="top-line"><strong>${p.url}</strong></div>
+      <div>Last Price Checked: $${p.lastPrice}</div>
+      <div class="small">Last Checked: ${new Date(p.checked).toLocaleString()}</div>
+      <div class="small">Alert if price drops by $${p.threshold}</div>
+      <button onclick="removeProduct(${i})">Remove</button>
+    `;
+    list.appendChild(li);
+  });
+}
+
+// Remove a product
+function removeProduct(i) {
+  products.splice(i, 1);
+  save();
+  render();
+}
+
+// Add a new product
+async function addProduct() {
+  const url = document.getElementById("urlInput").value.trim();
+  if (!url) return alert("Paste a URL");
+
+  let detected = "0";
+
+  try {
+    const res = await fetch(url);
+    const html = await res.text();
+    const match = html.match(/\$[\d,.]+/);
+    if (match) detected = match[0].replace("$", "");
+  } catch (e) {
+    console.warn("Fetch failed");
   }
 
-  function render() {
-    list.innerHTML = "";
-    products.forEach((p, i) => {
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <div class="top-line">
-          <strong>${p.url}</strong>
-        </div>
-        <div>Last Price Checked: $${p.lastPrice || p.price}</div>
-        <div class="small">Last Checked: ${new Date(p.checked).toLocaleString()}</div>
-        <div class="small">Alert if price drops by $${p.threshold}</div>
-        <button onclick="removeProduct(${i})">Remove</button>
-      `;
-      list.appendChild(li);
-    });
-  }
+  const confirmed = prompt("Detected price (edit if wrong):", detected);
+  if (!confirmed) return;
 
-  function removeProduct(i) {
-    products.splice(i, 1);
-    save();
-    render();
-  }
+  const threshold = parseInt(thresholdSelect.value);
 
-  async function addProduct() {
-    const url = document.getElementById("urlInput").value.trim();
-    if (!url) return alert("Paste a URL");
+  products.push({
+    url,
+    price: parseFloat(confirmed),
+    lastPrice: parseFloat(confirmed),
+    checked: Date.now(),
+    threshold: threshold
+  });
 
-    let detected = "0";
+  save();
+  render();
+  document.getElementById("urlInput").value = "";
+}
 
+// Daily check function
+async function checkPrices() {
+  for (let p of products) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(p.url);
       const html = await res.text();
       const match = html.match(/\$[\d,.]+/);
-      if (match) detected = match[0].replace("$", "");
+      if (!match) continue;
+
+      const currentPrice = parseFloat(match[0].replace("$", ""));
+      const drop = p.lastPrice - currentPrice;
+
+      if (drop >= p.threshold) {
+        alert(`Price drop! ${p.url}\nOld: $${p.lastPrice} → New: $${currentPrice}`);
+      }
+
+      // Update lastPrice and last checked time
+      p.lastPrice = currentPrice;
+      p.checked = Date.now();
     } catch (e) {
-      console.warn("Fetch failed");
+      console.warn("Failed to fetch", p.url);
     }
-
-    const confirmed = prompt(
-      "Detected price (edit if wrong):",
-      detected
-    );
-    if (!confirmed) return;
-
-    const threshold = parseInt(thresholdSelect.value);
-
-    // Strip $ and commas before parsing to prevent NaN
-    const cleanPrice = parseFloat(confirmed.replace(/[\$,]/g, ""));
-
-    products.push({
-      url,
-      price: cleanPrice,
-      lastPrice: cleanPrice,
-      checked: Date.now(),
-      threshold: threshold
-    });
-
-    save();
-    render();
-    document.getElementById("urlInput").value = "";
   }
 
-  document.getElementById("addBtn").onclick = addProduct;
-
+  save();
   render();
-</script>
+}
 
+// Hook everything up
+document.getElementById("addBtn").onclick = addProduct;
+
+// Run daily check on load
+checkPrices();
+render();
+</script>
 </body>
 </html>
