@@ -1,210 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Price Tracker</title>
-<style>
-body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #dbdbdb;
-  color: #555555;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  justify-content: center;
-}
-.container {
-  width: 100%;
-  max-width: 600px;
-  margin: 40px 16px;
-}
-h1 {
-  text-align: center;
-  margin-bottom: 20px;
-}
-.input-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 20px;
-  justify-content: center;
-}
-input, select {
-  flex: 1;
-  min-width: 120px;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  font-size: 16px;
-}
-button {
-  background-color: #94adff;
-  color: #fff;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background 0.2s;
-}
-button:hover {
-  background-color: #7a91e0;
-}
-ul {
-  list-style: none;
-  padding: 0;
-}
-li {
-  background-color: #e5ebff;
-  padding: 15px;
-  margin-bottom: 12px;
-  border-radius: 12px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  word-break: break-word;
-}
-li button {
-  margin-top: 15px;
-}
-.small {
-  font-size: 12px;
-  color: #555555;
-  margin-top: 4px;
-}
-.top-line {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.alert {
-  color: red;
-  font-weight: bold;
-  margin-top: 8px;
-}
-</style>
-</head>
-<body>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Price Tracker</title>
 
-<div class="container">
-  <div class="input-group">
-    <input id="urlInput" placeholder="Paste Link" />
-    <select id="threshold">
-      <option value="15">$15 drop alert</option>
-      <option value="45">$45 drop alert</option>
-    </select>
-    <button id="addBtn">Add Product</button>
-    <button id="refreshBtn">Refresh Prices</button>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #dbdbdb;
+      color: #555555;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      margin: 40px 16px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+
+    input, select {
+      flex: 1;
+      min-width: 120px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #94adff;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background-color: #7a91e0;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      background-color: #e5ebff;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      word-break: break-word;
+    }
+
+    li button {
+      margin-top: 15px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #555555;
+      margin-top: 4px;
+    }
+
+    .top-line {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .alert {
+      color: red;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="input-group">
+      <input id="urlInput" placeholder="Paste Link" />
+      <select id="threshold">
+        <option value="15">$15 drop alert</option>
+        <option value="45">$45 drop alert</option>
+      </select>
+      <button id="addBtn">Add Product</button>
+      <button id="refreshBtn">Refresh Prices</button>
+    </div>
+
+    <ul id="productList"></ul>
   </div>
 
-  <ul id="productList"></ul>
-</div>
+  <script>
+    const products = JSON.parse(localStorage.getItem("products") || "[]");
+    const list = document.getElementById("productList");
+    const thresholdSelect = document.getElementById("threshold");
 
-<script>
-const products = JSON.parse(localStorage.getItem("products") || "[]");
-const list = document.getElementById("productList");
-const thresholdSelect = document.getElementById("threshold");
+    function save() {
+      localStorage.setItem("products", JSON.stringify(products));
+    }
 
-function save() {
-  localStorage.setItem("products", JSON.stringify(products));
-}
+    function render() {
+      list.innerHTML = "";
 
-function render() {
-  list.innerHTML = "";
-  products.forEach((p, i) => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <div class="top-line"><strong>${p.url}</strong></div>
-      <div>Last Price Checked: $${p.lastPrice.toFixed(2)}</div>
-      <div class="small">Last Checked: ${new Date(p.checked).toLocaleString()}</div>
-      <div class="small">Alert if price drops by $${p.threshold}</div>
-      <div class="alert" id="alert-${i}" style="display:none;"></div>
-      <button onclick="removeProduct(${i})">Remove</button>
-    `;
-    list.appendChild(li);
-  });
-}
+      products.forEach((p, i) => {
+        const li = document.createElement("li");
 
-function removeProduct(i) {
-  products.splice(i, 1);
-  save();
-  render();
-}
+        li.innerHTML = `
+          <div class="top-line">
+            <strong>${p.url}</strong>
+          </div>
+          <div>Last Price Checked: $${p.lastPrice.toFixed(2)}</div>
+          <div class="small">Last Checked: ${new Date(p.checked).toLocaleString()}</div>
+          <div class="small">Alert if price drops by $${p.threshold}</div>
+          <div class="alert" id="alert-${i}" style="display:none;"></div>
+          <button onclick="removeProduct(${i})">Remove</button>
+        `;
 
-async function addProduct() {
-  const url = document.getElementById("urlInput").value.trim();
-  if (!url) return alert("Paste a URL");
+        list.appendChild(li);
+      });
+    }
 
-  let detected = "0";
+    function removeProduct(i) {
+      products.splice(i, 1);
+      save();
+      render();
+    }
 
-  try {
-    const res = await fetch(url);
-    const html = await res.text();
-    const match = html.match(/PRICE:\s*([\d,.]+)/);
-    if (match) detected = match[1];
-  } catch (e) {
-    console.warn("Fetch failed");
-  }
+    async function addProduct() {
+      const url = document.getElementById("urlInput").value.trim();
+      if (!url) return alert("Paste a URL");
 
-  const confirmed = prompt(
-    "Detected PRICE marker value (edit if needed):",
-    detected
-  );
-  if (!confirmed) return;
+      let detected = "0";
 
-  const threshold = parseInt(thresholdSelect.value);
-
-  products.push({
-    url,
-    lastPrice: parseFloat(confirmed.replace(/,/g, "")),
-    checked: Date.now(),
-    threshold
-  });
-
-  save();
-  render();
-  document.getElementById("urlInput").value = "";
-}
-
-async function checkPrices() {
-  for (let i = 0; i < products.length; i++) {
-    const p = products[i];
-    try {
-      const res = await fetch(p.url);
-      const html = await res.text();
-      const match = html.match(/PRICE:\s*([\d,.]+)/);
-      if (!match) continue;
-
-      const currentPrice = parseFloat(match[1].replace(/,/g, ""));
-      const drop = p.lastPrice - currentPrice;
-
-      const alertDiv = document.getElementById(`alert-${i}`);
-      if (drop >= p.threshold) {
-        alertDiv.style.display = "block";
-        alertDiv.textContent =
-          `Price dropped! Old: $${p.lastPrice.toFixed(2)} → New: $${currentPrice.toFixed(2)}`;
-      } else {
-        alertDiv.style.display = "none";
+      try {
+        const res = await fetch(url);
+        const html = await res.text();
+        const match = html.match(/[\$€£]?\s?(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
+        if (match) detected = match[1] + (match[2] || "");
+      } catch {
+        console.warn("Fetch failed");
       }
 
-      p.lastPrice = currentPrice;
-      p.checked = Date.now();
-    } catch (e) {
-      console.warn("Failed to fetch", p.url);
+      const confirmed = prompt("Detected price (edit if wrong):", detected);
+      if (!confirmed) return;
+
+      const threshold = parseInt(thresholdSelect.value, 10);
+
+      products.push({
+        url,
+        lastPrice: parseFloat(confirmed.replace(/,/g, "")),
+        checked: Date.now(),
+        threshold
+      });
+
+      save();
+      render();
+      document.getElementById("urlInput").value = "";
     }
-  }
 
-  save();
-  render();
-}
+    async function checkPrices() {
+      for (let i = 0; i < products.length; i++) {
+        const p = products[i];
 
-document.getElementById("addBtn").onclick = addProduct;
-document.getElementById("refreshBtn").onclick = checkPrices;
+        try {
+          const res = await fetch(p.url);
+          const html = await res.text();
+          const match = html.match(/[\$€£]?\s?(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
+          if (!match) continue;
 
-checkPrices();
-render();
-</script>
+          const currentPrice = parseFloat(
+            (match[1] + (match[2] || "")).replace(/,/g, "")
+          );
 
+          const drop = p.lastPrice - currentPrice;
+          const alertDiv = document.getElementById(`alert-${i}`);
+
+          if (drop >= p.threshold) {
+            alertDiv.style.display = "block";
+            alertDiv.textContent =
+              `Price dropped! Old: $${p.lastPrice.toFixed(2)} → New: $${currentPrice.toFixed(2)}`;
+          } else {
+            alertDiv.style.display = "none";
+          }
+
+          p.lastPrice = currentPrice;
+          p.checked = Date.now();
+        } catch {
+          console.warn("Failed to fetch", p.url);
+        }
+      }
+
+      save();
+      render();
+    }
+
+    document.getElementById("addBtn").onclick = addProduct;
+    document.getElementById("refreshBtn").onclick = checkPrices;
+
+    checkPrices();
+    render();
+  </script>
 </body>
 </html>
