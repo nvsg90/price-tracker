@@ -64,7 +64,7 @@ li {
   word-break: break-word;
 }
 li button {
-  margin-top: 15px; 
+  margin-top: 15px;
 }
 .small {
   font-size: 12px;
@@ -88,8 +88,6 @@ li button {
 <body>
 
 <div class="container">
-  
-
   <div class="input-group">
     <input id="urlInput" placeholder="Paste Link" />
     <select id="threshold">
@@ -143,22 +141,25 @@ async function addProduct() {
   try {
     const res = await fetch(url);
     const html = await res.text();
-    const match = html.match(/[\$€£]?[\s]?(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
-    if (match) detected = match[1] + (match[2] || "");
+    const match = html.match(/PRICE:\s*([\d,.]+)/);
+    if (match) detected = match[1];
   } catch (e) {
     console.warn("Fetch failed");
   }
 
-  const confirmed = prompt("Detected price (edit if wrong):", detected);
+  const confirmed = prompt(
+    "Detected PRICE marker value (edit if needed):",
+    detected
+  );
   if (!confirmed) return;
 
   const threshold = parseInt(thresholdSelect.value);
 
   products.push({
     url,
-    lastPrice: parseFloat(confirmed.replace(/,/g, '')),
+    lastPrice: parseFloat(confirmed.replace(/,/g, "")),
     checked: Date.now(),
-    threshold: threshold
+    threshold
   });
 
   save();
@@ -172,18 +173,19 @@ async function checkPrices() {
     try {
       const res = await fetch(p.url);
       const html = await res.text();
-      const match = html.match(/[\$€£]?[\s]?(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
+      const match = html.match(/PRICE:\s*([\d,.]+)/);
       if (!match) continue;
 
-      const currentPrice = parseFloat((match[1] + (match[2] || "")).replace(/,/g,''));
+      const currentPrice = parseFloat(match[1].replace(/,/g, ""));
       const drop = p.lastPrice - currentPrice;
 
       const alertDiv = document.getElementById(`alert-${i}`);
       if (drop >= p.threshold) {
-        alertDiv.style.display = 'block';
-        alertDiv.textContent = `Price dropped! Old: $${p.lastPrice.toFixed(2)} → New: $${currentPrice.toFixed(2)}`;
+        alertDiv.style.display = "block";
+        alertDiv.textContent =
+          `Price dropped! Old: $${p.lastPrice.toFixed(2)} → New: $${currentPrice.toFixed(2)}`;
       } else {
-        alertDiv.style.display = 'none';
+        alertDiv.style.display = "none";
       }
 
       p.lastPrice = currentPrice;
