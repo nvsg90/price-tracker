@@ -36,6 +36,7 @@
       border: 1px solid #ccc;
       font-size: 16px;
       min-width: 120px;
+      word-break: break-word;
     }
     button {
       background-color: #94adff;
@@ -73,6 +74,7 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 8px;
+      word-break: break-word;
     }
     .remove-btn {
       margin-top: 15px;
@@ -82,7 +84,6 @@
 <body>
 
 <div class="container">
-  <h1>Price Tracker</h1>
 
   <div class="input-group">
     <input id="urlInput" placeholder="Paste product URL" />
@@ -103,6 +104,9 @@ const products = JSON.parse(localStorage.getItem("products") || "[]");
 const list = document.getElementById("productList");
 const thresholdSelect = document.getElementById("threshold");
 
+// <-- Replace with your Vercel backend URL -->
+const VER_URL = "https://<your-vercel-url>/check-price";
+
 function save() {
   localStorage.setItem("products", JSON.stringify(products));
 }
@@ -117,7 +121,7 @@ function render() {
       <div>Last Price Checked: $${p.lastPrice}</div>
       <div class="small">Last Checked: ${new Date(p.checked).toLocaleString()}</div>
       <div class="small">Alert if price drops by $${p.threshold}</div>
-      <button class="remove-btn" onclick="removeProduct(${i})">Remove</button>
+      <div style="margin-top:15px;"><button class="remove-btn" onclick="removeProduct(${i})">Remove</button></div>
     `;
     list.appendChild(li);
   });
@@ -130,6 +134,24 @@ function removeProduct(i) {
   render();
 }
 
+// Check price via backend
+async function checkPrice(url, priceAnchor) {
+  try {
+    const res = await fetch(VER_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ url, priceAnchor })
+    });
+    const data = await res.json();
+    if (data.price != null) return data.price;
+    console.warn("Price not found for", url);
+    return null;
+  } catch (e) {
+    console.warn("Failed to fetch price for", url, e);
+    return null;
+  }
+}
+
 // Add a new product
 async function addProduct() {
   const url = document.getElementById("urlInput").value.trim();
@@ -137,7 +159,6 @@ async function addProduct() {
   if (!url || !priceAnchor) return alert("Paste both URL and price text");
 
   const threshold = parseInt(thresholdSelect.value);
-
   const detected = parseFloat(priceAnchor.replace(/[^0-9.]/g,"")) || 0;
 
   products.push({
@@ -155,39 +176,18 @@ async function addProduct() {
   document.getElementById("priceAnchorInput").value = "";
 }
 
-// Check prices (live page)
-async function checkPrices() {
+// Refresh all products
+async function refreshPrices() {
   for (let p of products) {
-    try {
-      const res = await fetch(p.url);
-      const html = await res.text();
+    const price = await checkPrice(p.url, p.priceAnchor);
+    if (price == null) continue;
 
-      // Escape special regex chars in anchor
-      const escapedAnchor = p.priceAnchor.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&');
-
-      // Allow optional whitespace or HTML tags between characters
-      const regex = new RegExp(escapedAnchor.split("").join("[\\s\\S]*?"), "i");
-
-      const match = html.match(regex);
-      if (!match) continue;
-
-      // Extract first number from matched string
-      const numMatch = match[0].match(/[\d,.]+/);
-      if (!numMatch) continue;
-
-      const currentPrice = parseFloat(numMatch[0].replace(/,/g, ""));
-      const drop = p.lastPrice - currentPrice;
-
-      if (drop >= p.threshold) {
-        alert(`Price drop! ${p.url}\nOld: $${p.lastPrice} → New: $${currentPrice}`);
-      }
-
-      p.lastPrice = currentPrice;
-      p.checked = Date.now();
-
-    } catch (e) {
-      console.warn("Failed to fetch", p.url);
+    if (p.lastPrice - price >= p.threshold) {
+      alert(`Price drop!\n${p.url}\nOld: $${p.lastPrice} → New: $${price}`);
     }
+
+    p.lastPrice = price;
+    p.checked = Date.now();
   }
 
   save();
@@ -196,10 +196,10 @@ async function checkPrices() {
 
 // Hook buttons
 document.getElementById("addBtn").onclick = addProduct;
-document.getElementById("refreshBtn").onclick = checkPrices;
+document.getElementById("refreshBtn").onclick = refreshPrices;
 
 // Run on load
-checkPrices();
+refreshPrices();
 render();
 </script>
 </body>
