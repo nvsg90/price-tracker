@@ -1,64 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Price Tracker</title>
-<style>
-  body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: #dbdbdb;
-    color: #555555;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-  }
-  .container {
-    width: 100%;
-    max-width: 600px;
-    margin: 40px 16px;
-  }
-  h1 {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  .input-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-  }
-  input, select {
-    flex: 1;
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    font-size: 16px;
-  }
-  button {
-    background-color: #94adff;
-    color: #fff;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background 0.2s;
-  }
-  button:hover { background-color: #7a91e0; }
-  ul { list-style: none; padding: 0; }
-  li {
-    background-color: #e5ebff;
-    padding: 15px;
-    margin-bottom: 12px;
-    border-radius: 12px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  }
-  .small { font-size: 12px; color: #555555; margin-top: 4px; }
-  .top-line { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .alert { color: red; font-weight: bold; margin-top: 6px; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Price Tracker</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #dbdbdb;
+      color: #555555;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 600px;
+      margin: 40px 16px;
+    }
+    li button {
+      margin-top: 15px;  /* Add space above button */
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    input, select {
+      flex: 1;
+      min-width: 120px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+    button {
+      background-color: #94adff;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background-color: #7a91e0;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      background-color: #e5ebff;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .small {
+      font-size: 12px;
+      color: #555555;
+      margin-top: 4px;
+    }
+    .top-line {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .alert {
+      color: red;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+  </style>
 </head>
 <body>
 
@@ -72,7 +97,7 @@
       <option value="45">$45 drop alert</option>
     </select>
     <button id="addBtn">Add Product</button>
-    <button id="refreshBtn">Check Prices Now</button>
+    <button id="refreshBtn">Refresh Prices</button>
   </div>
 
   <ul id="productList"></ul>
@@ -88,7 +113,7 @@ function save() {
   localStorage.setItem("products", JSON.stringify(products));
 }
 
-// Render product list
+// Render the product list
 function render() {
   list.innerHTML = "";
   products.forEach((p, i) => {
@@ -98,24 +123,18 @@ function render() {
       <div>Last Price Checked: $${p.lastPrice}</div>
       <div class="small">Last Checked: ${new Date(p.checked).toLocaleString()}</div>
       <div class="small">Alert if price drops by $${p.threshold}</div>
-      ${p.alert ? `<div class="alert">${p.alert}</div>` : ""}
+      <div class="alert" id="alert-${i}"></div>
       <button onclick="removeProduct(${i})">Remove</button>
     `;
     list.appendChild(li);
   });
 }
 
-// Remove product
+// Remove a product
 function removeProduct(i) {
   products.splice(i, 1);
   save();
   render();
-}
-
-// Parse price string like "$1,234.56" into number
-function parsePrice(priceStr) {
-  if (!priceStr) return 0;
-  return parseFloat(priceStr.replace(/[^0-9.]/g, ""));
 }
 
 // Add a new product
@@ -124,11 +143,13 @@ async function addProduct() {
   if (!url) return alert("Paste a URL");
 
   let detected = "0";
+
   try {
     const res = await fetch(url);
     const html = await res.text();
-    const match = html.match(/\$[\d,.]+/);
-    if (match) detected = match[0];
+    // Match numbers with or without $ sign
+    const match = html.match(/(?:\$)?\d+[\.,]?\d*/);
+    if (match) detected = match[0].replace(/[^0-9.]/g, "");
   } catch (e) {
     console.warn("Fetch failed");
   }
@@ -140,11 +161,10 @@ async function addProduct() {
 
   products.push({
     url,
-    price: parsePrice(confirmed),
-    lastPrice: parsePrice(confirmed),
+    price: parseFloat(confirmed),
+    lastPrice: parseFloat(confirmed),
     checked: Date.now(),
-    threshold: threshold,
-    alert: ""
+    threshold: threshold
   });
 
   save();
@@ -152,32 +172,29 @@ async function addProduct() {
   document.getElementById("urlInput").value = "";
 }
 
-// Check prices (once per day)
-async function checkPrices(force=false) {
-  const now = Date.now();
-
-  for (let p of products) {
-    // Skip if already checked today unless force refresh
-    if (!force && p.lastCheckDay && now - p.lastCheckDay < 24*60*60*1000) continue;
-
+// Check prices and show in-page alerts
+async function checkPrices() {
+  for (let i = 0; i < products.length; i++) {
+    const p = products[i];
     try {
       const res = await fetch(p.url);
       const html = await res.text();
-      const match = html.match(/\$[\d,.]+/);
+      const match = html.match(/(?:\$)?\d+[\.,]?\d*/);
       if (!match) continue;
 
-      const currentPrice = parsePrice(match[0]);
+      const currentPrice = parseFloat(match[0].replace(/[^0-9.]/g, ""));
       const drop = p.lastPrice - currentPrice;
 
+      const alertDiv = document.getElementById(`alert-${i}`);
       if (drop >= p.threshold) {
-        p.alert = `Price dropped! Old: $${p.lastPrice} → New: $${currentPrice}`;
+        alertDiv.textContent = `Price dropped! Old: $${p.lastPrice} → New: $${currentPrice}`;
       } else {
-        p.alert = "";
+        alertDiv.textContent = "";
       }
 
+      // Update lastPrice and last checked time
       p.lastPrice = currentPrice;
-      p.checked = now;
-      p.lastCheckDay = now;
+      p.checked = Date.now();
     } catch (e) {
       console.warn("Failed to fetch", p.url);
     }
@@ -189,9 +206,9 @@ async function checkPrices(force=false) {
 
 // Hook buttons
 document.getElementById("addBtn").onclick = addProduct;
-document.getElementById("refreshBtn").onclick = () => checkPrices(true);
+document.getElementById("refreshBtn").onclick = checkPrices;
 
-// Run daily check on load
+// Run price check on load
 checkPrices();
 render();
 </script>
