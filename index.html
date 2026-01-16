@@ -20,7 +20,7 @@
       margin: 40px 16px;
     }
     li button {
-    margin-top: 15px;  /* Add space above button */
+      margin-top: 15px;  /* Add space above button */
     }
     h1 {
       text-align: center;
@@ -148,10 +148,13 @@
 
     const threshold = parseInt(thresholdSelect.value);
 
+    // Strip $ and commas before parsing to prevent NaN
+    const cleanPrice = parseFloat(confirmed.replace(/[\$,]/g, ""));
+
     products.push({
       url,
-      price: parseFloat(confirmed),
-      lastPrice: parseFloat(confirmed),
+      price: cleanPrice,
+      lastPrice: cleanPrice,
       checked: Date.now(),
       threshold: threshold
     });
