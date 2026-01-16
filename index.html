@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Price Tracker</title>
-
   <style>
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -15,35 +14,29 @@
       display: flex;
       justify-content: center;
     }
-
     .container {
       width: 100%;
       max-width: 600px;
       margin: 40px 16px;
     }
-
     h1 {
       text-align: center;
       margin-bottom: 20px;
     }
-
     .input-group {
       display: flex;
-      flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 20px;
-      justify-content: center;
+      flex-wrap: wrap;
     }
-
     input, select {
       flex: 1;
-      min-width: 120px;
       padding: 12px;
       border-radius: 8px;
       border: 1px solid #ccc;
       font-size: 16px;
+      min-width: 120px;
     }
-
     button {
       background-color: #94adff;
       color: #fff;
@@ -54,35 +47,26 @@
       font-size: 16px;
       transition: background 0.2s;
     }
-
     button:hover {
       background-color: #7a91e0;
     }
-
     ul {
       list-style: none;
       padding: 0;
     }
-
     li {
       background-color: #e5ebff;
       padding: 15px;
       margin-bottom: 12px;
       border-radius: 12px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      word-break: break-word;
+      word-wrap: break-word;
     }
-
-    li button {
-      margin-top: 15px;
-    }
-
     .small {
       font-size: 12px;
       color: #555555;
       margin-top: 4px;
     }
-
     .top-line {
       display: flex;
       justify-content: space-between;
@@ -90,139 +74,127 @@
       align-items: center;
       gap: 8px;
     }
-
-    .alert {
-      color: red;
-      font-weight: bold;
-      margin-top: 8px;
+    .remove-btn {
+      margin-top: 15px;
     }
   </style>
 </head>
-
 <body>
-  <div class="container">
-    <div class="input-group">
-      <input id="urlInput" placeholder="Paste Link" />
-      <select id="threshold">
-        <option value="15">$15 drop alert</option>
-        <option value="45">$45 drop alert</option>
-      </select>
-      <button id="addBtn">Add Product</button>
-      <button id="refreshBtn">Refresh Prices</button>
-    </div>
 
-    <ul id="productList"></ul>
+<div class="container">
+  <h1>Price Tracker</h1>
+
+  <div class="input-group">
+    <input id="urlInput" placeholder="Paste product URL" />
+    <input id="priceAnchorInput" placeholder="Paste exact price text ($32.99)" />
+    <select id="threshold">
+      <option value="15">$15 drop alert</option>
+      <option value="45">$45 drop alert</option>
+    </select>
+    <button id="addBtn">Add Product</button>
+    <button id="refreshBtn">Refresh Prices</button>
   </div>
 
-  <script>
-    const products = JSON.parse(localStorage.getItem("products") || "[]");
-    const list = document.getElementById("productList");
-    const thresholdSelect = document.getElementById("threshold");
+  <ul id="productList"></ul>
+</div>
 
-    function save() {
-      localStorage.setItem("products", JSON.stringify(products));
-    }
+<script>
+const products = JSON.parse(localStorage.getItem("products") || "[]");
+const list = document.getElementById("productList");
+const thresholdSelect = document.getElementById("threshold");
 
-    function render() {
-      list.innerHTML = "";
+function save() {
+  localStorage.setItem("products", JSON.stringify(products));
+}
 
-      products.forEach((p, i) => {
-        const li = document.createElement("li");
+// Render the product list
+function render() {
+  list.innerHTML = "";
+  products.forEach((p, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <div class="top-line"><strong>${p.url}</strong></div>
+      <div>Last Price Checked: $${p.lastPrice}</div>
+      <div class="small">Last Checked: ${new Date(p.checked).toLocaleString()}</div>
+      <div class="small">Alert if price drops by $${p.threshold}</div>
+      <button class="remove-btn" onclick="removeProduct(${i})">Remove</button>
+    `;
+    list.appendChild(li);
+  });
+}
 
-        li.innerHTML = `
-          <div class="top-line">
-            <strong>${p.url}</strong>
-          </div>
-          <div>Last Price Checked: $${p.lastPrice.toFixed(2)}</div>
-          <div class="small">Last Checked: ${new Date(p.checked).toLocaleString()}</div>
-          <div class="small">Alert if price drops by $${p.threshold}</div>
-          <div class="alert" id="alert-${i}" style="display:none;"></div>
-          <button onclick="removeProduct(${i})">Remove</button>
-        `;
+// Remove a product
+function removeProduct(i) {
+  products.splice(i, 1);
+  save();
+  render();
+}
 
-        list.appendChild(li);
-      });
-    }
+// Add a new product
+async function addProduct() {
+  const url = document.getElementById("urlInput").value.trim();
+  const priceAnchor = document.getElementById("priceAnchorInput").value.trim();
+  if (!url || !priceAnchor) return alert("Paste both URL and price text");
 
-    function removeProduct(i) {
-      products.splice(i, 1);
-      save();
-      render();
-    }
+  const threshold = parseInt(thresholdSelect.value);
 
-    async function addProduct() {
-      const url = document.getElementById("urlInput").value.trim();
-      if (!url) return alert("Paste a URL");
+  const detected = parseFloat(priceAnchor.replace(/[^0-9.]/g,"")) || 0;
 
-      let detected = "0";
+  products.push({
+    url,
+    price: detected,
+    lastPrice: detected,
+    priceAnchor: priceAnchor,
+    checked: Date.now(),
+    threshold: threshold
+  });
 
-      try {
-        const res = await fetch(url);
-        const html = await res.text();
-        const match = html.match(/[\$€£]?\s?(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
-        if (match) detected = match[1] + (match[2] || "");
-      } catch {
-        console.warn("Fetch failed");
+  save();
+  render();
+  document.getElementById("urlInput").value = "";
+  document.getElementById("priceAnchorInput").value = "";
+}
+
+// Check prices
+async function checkPrices() {
+  for (let p of products) {
+    try {
+      const res = await fetch(p.url);
+      const html = await res.text();
+
+      // Look for the exact price text anchor
+      const idx = html.indexOf(p.priceAnchor);
+      if (idx === -1) continue;
+
+      // Extract number from anchor text
+      const match = p.priceAnchor.match(/[\d,.]+/);
+      if (!match) continue;
+      const currentPrice = parseFloat(match[0].replace(/,/g, ""));
+
+      const drop = p.lastPrice - currentPrice;
+      if (drop >= p.threshold) {
+        alert(`Price drop! ${p.url}\nOld: $${p.lastPrice} → New: $${currentPrice}`);
       }
 
-      const confirmed = prompt("Detected price (edit if wrong):", detected);
-      if (!confirmed) return;
-
-      const threshold = parseInt(thresholdSelect.value, 10);
-
-      products.push({
-        url,
-        lastPrice: parseFloat(confirmed.replace(/,/g, "")),
-        checked: Date.now(),
-        threshold
-      });
-
-      save();
-      render();
-      document.getElementById("urlInput").value = "";
+      // Update lastPrice and last checked time
+      p.lastPrice = currentPrice;
+      p.checked = Date.now();
+    } catch (e) {
+      console.warn("Failed to fetch", p.url);
     }
+  }
 
-    async function checkPrices() {
-      for (let i = 0; i < products.length; i++) {
-        const p = products[i];
+  save();
+  render();
+}
 
-        try {
-          const res = await fetch(p.url);
-          const html = await res.text();
-          const match = html.match(/[\$€£]?\s?(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
-          if (!match) continue;
+// Hook everything up
+document.getElementById("addBtn").onclick = addProduct;
+document.getElementById("refreshBtn").onclick = checkPrices;
 
-          const currentPrice = parseFloat(
-            (match[1] + (match[2] || "")).replace(/,/g, "")
-          );
-
-          const drop = p.lastPrice - currentPrice;
-          const alertDiv = document.getElementById(`alert-${i}`);
-
-          if (drop >= p.threshold) {
-            alertDiv.style.display = "block";
-            alertDiv.textContent =
-              `Price dropped! Old: $${p.lastPrice.toFixed(2)} → New: $${currentPrice.toFixed(2)}`;
-          } else {
-            alertDiv.style.display = "none";
-          }
-
-          p.lastPrice = currentPrice;
-          p.checked = Date.now();
-        } catch {
-          console.warn("Failed to fetch", p.url);
-        }
-      }
-
-      save();
-      render();
-    }
-
-    document.getElementById("addBtn").onclick = addProduct;
-    document.getElementById("refreshBtn").onclick = checkPrices;
-
-    checkPrices();
-    render();
-  </script>
+// Run check on load
+checkPrices();
+render();
+</script>
 </body>
 </html>
