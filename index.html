@@ -155,30 +155,36 @@ async function addProduct() {
   document.getElementById("priceAnchorInput").value = "";
 }
 
-// Check prices
+// Check prices (live page)
 async function checkPrices() {
   for (let p of products) {
     try {
       const res = await fetch(p.url);
       const html = await res.text();
 
-      // Look for the exact price text anchor
-      const idx = html.indexOf(p.priceAnchor);
-      if (idx === -1) continue;
+      // Escape special regex chars in anchor
+      const escapedAnchor = p.priceAnchor.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&');
 
-      // Extract number from anchor text
-      const match = p.priceAnchor.match(/[\d,.]+/);
+      // Allow optional whitespace or HTML tags between characters
+      const regex = new RegExp(escapedAnchor.split("").join("[\\s\\S]*?"), "i");
+
+      const match = html.match(regex);
       if (!match) continue;
-      const currentPrice = parseFloat(match[0].replace(/,/g, ""));
 
+      // Extract first number from matched string
+      const numMatch = match[0].match(/[\d,.]+/);
+      if (!numMatch) continue;
+
+      const currentPrice = parseFloat(numMatch[0].replace(/,/g, ""));
       const drop = p.lastPrice - currentPrice;
+
       if (drop >= p.threshold) {
         alert(`Price drop! ${p.url}\nOld: $${p.lastPrice} → New: $${currentPrice}`);
       }
 
-      // Update lastPrice and last checked time
       p.lastPrice = currentPrice;
       p.checked = Date.now();
+
     } catch (e) {
       console.warn("Failed to fetch", p.url);
     }
@@ -188,11 +194,11 @@ async function checkPrices() {
   render();
 }
 
-// Hook everything up
+// Hook buttons
 document.getElementById("addBtn").onclick = addProduct;
 document.getElementById("refreshBtn").onclick = checkPrices;
 
-// Run check on load
+// Run on load
 checkPrices();
 render();
 </script>
