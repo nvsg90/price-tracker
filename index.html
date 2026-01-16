@@ -37,7 +37,6 @@ input, select {
   border-radius: 8px;
   border: 1px solid #ccc;
   font-size: 16px;
-  word-break: break-all;
 }
 button {
   background-color: #94adff;
@@ -63,7 +62,9 @@ li {
   border-radius: 12px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
   word-break: break-word;
-  position: relative;
+}
+li button {
+  margin-top: 15px; /* ✅ 15px gap above Remove button */
 }
 .small {
   font-size: 12px;
@@ -90,7 +91,7 @@ li {
   <h1>Price Tracker</h1>
 
   <div class="input-group">
-    <input id="urlInput" placeholder="Paste Link" />
+    <input id="urlInput" placeholder="Paste product URL" />
     <select id="threshold">
       <option value="15">$15 drop alert</option>
       <option value="45">$45 drop alert</option>
@@ -127,14 +128,12 @@ function render() {
   });
 }
 
-// Remove product
 function removeProduct(i) {
   products.splice(i, 1);
   save();
   render();
 }
 
-// Add new product
 async function addProduct() {
   const url = document.getElementById("urlInput").value.trim();
   if (!url) return alert("Paste a URL");
@@ -144,9 +143,8 @@ async function addProduct() {
   try {
     const res = await fetch(url);
     const html = await res.text();
-    // More robust price regex to handle $ and commas
-    const match = html.match(/(\$|)(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
-    if (match) detected = match[2] + (match[3] || "");
+    const match = html.match(/[\$€£]?[\s]?(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
+    if (match) detected = match[1] + (match[2] || "");
   } catch (e) {
     console.warn("Fetch failed");
   }
@@ -158,7 +156,6 @@ async function addProduct() {
 
   products.push({
     url,
-    price: parseFloat(confirmed.replace(/,/g, '')),
     lastPrice: parseFloat(confirmed.replace(/,/g, '')),
     checked: Date.now(),
     threshold: threshold
@@ -169,17 +166,16 @@ async function addProduct() {
   document.getElementById("urlInput").value = "";
 }
 
-// Check all prices and show in-page alerts
 async function checkPrices() {
   for (let i = 0; i < products.length; i++) {
     const p = products[i];
     try {
       const res = await fetch(p.url);
       const html = await res.text();
-      const match = html.match(/(\$|)(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
+      const match = html.match(/[\$€£]?[\s]?(\d{1,3}(?:,\d{3})*|\d+)(\.\d+)?/);
       if (!match) continue;
 
-      const currentPrice = parseFloat((match[2] + (match[3] || "")).replace(/,/g,''));
+      const currentPrice = parseFloat((match[1] + (match[2] || "")).replace(/,/g,''));
       const drop = p.lastPrice - currentPrice;
 
       const alertDiv = document.getElementById(`alert-${i}`);
@@ -190,7 +186,6 @@ async function checkPrices() {
         alertDiv.style.display = 'none';
       }
 
-      // Update last price and last checked time
       p.lastPrice = currentPrice;
       p.checked = Date.now();
     } catch (e) {
@@ -202,11 +197,9 @@ async function checkPrices() {
   render();
 }
 
-// Hook buttons
 document.getElementById("addBtn").onclick = addProduct;
 document.getElementById("refreshBtn").onclick = checkPrices;
 
-// Run check on load
 checkPrices();
 render();
 </script>
