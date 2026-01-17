@@ -84,20 +84,130 @@
 <body>
 
 <div class="container">
+  <h1>Price Tracker</h1>
 
   <div class="input-group">
     <input id="urlInput" placeholder="Paste product URL" />
     <input id="priceAnchorInput" placeholder="Paste exact price text ($32.99)" />
     <select id="threshold">
-      <option value="15">$15 drop alert</option>
-      <option value="45">$45 drop alert</option>
+      <option value="10">$10 drop alert</option>
+      <option value="25">$25 drop alert</option>
+      <option value="50">$50 drop alert</option>
     </select>
     <button id="addBtn">Add Product</button>
-    <button id="refreshBtn">Refresh Prices</button>
   </div>
 
   <ul id="productList"></ul>
 </div>
 
+<script>
+const products = JSON.parse(localStorage.getItem("products") || "[]");
+const list = document.getElementById("productList");
+const thresholdSelect = document.getElementById("threshold");
+
+// <-- Replace with your Vercel backend URL -->
+const VER_URL = "https://<your-vercel-url>/check-price";
+
+function save() {
+  localStorage.setItem("products", JSON.stringify(products));
+}
+
+// Render the product list
+function render() {
+  list.innerHTML = "";
+  products.forEach((p, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <div class="top-line"><strong>${p.url}</strong></div>
+      <div>Last Price Checked: $${p.lastPrice}</div>
+      <div class="small">Last Checked: ${new Date(p.checked).toLocaleString()}</div>
+      <div class="small">Alert if price drops by $${p.threshold}</div>
+      <div style="margin-top:15px;"><button class="remove-btn" onclick="removeProduct(${i})">Remove</button></div>
+    `;
+    list.appendChild(li);
+  });
+}
+
+// Remove a product
+function removeProduct(i) {
+  products.splice(i, 1);
+  save();
+  render();
+}
+
+// Check price via backend
+async function checkPrice(url, priceAnchor) {
+  try {
+    const res = await fetch(VER_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ url, priceAnchor })
+    });
+    const data = await res.json();
+    if (data.price != null) return data.price;
+    console.warn("Price not found for", url);
+    return null;
+  } catch (e) {
+    console.warn("Failed to fetch price for", url, e);
+    return null;
+  }
+}
+
+// Only check once per day
+function shouldCheck(p) {
+  return Date.now() - p.checked > 24 * 60 * 60 * 1000;
+}
+
+// Refresh all products
+async function refreshPrices() {
+  for (let p of products) {
+    if (!shouldCheck(p)) continue;
+
+    const price = await checkPrice(p.url, p.priceAnchor);
+    if (price == null) continue;
+
+    if (p.lastPrice - price >= p.threshold) {
+      alert(`Price drop!\n${p.url}\nOld: $${p.lastPrice} → New: $${price}`);
+    }
+
+    p.lastPrice = price;
+    p.checked = Date.now();
+  }
+
+  save();
+  render();
+}
+
+// Add a new product
+async function addProduct() {
+  const url = document.getElementById("urlInput").value.trim();
+  const priceAnchor = document.getElementById("priceAnchorInput").value.trim();
+  if (!url || !priceAnchor) return alert("Paste both URL and price text");
+
+  const threshold = parseInt(thresholdSelect.value);
+  const detected = parseFloat(priceAnchor.replace(/[^0-9.]/g,"")) || 0;
+
+  products.push({
+    url,
+    price: detected,
+    lastPrice: detected,
+    priceAnchor: priceAnchor,
+    checked: 0, // Force first check immediately
+    threshold: threshold
+  });
+
+  save();
+  render();
+  document.getElementById("urlInput").value = "";
+  document.getElementById("priceAnchorInput").value = "";
+}
+
+// Hook add button
+document.getElementById("addBtn").onclick = addProduct;
+
+// Run on load
+refreshPrices();
+render();
+</script>
 </body>
 </html>
